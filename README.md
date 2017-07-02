@@ -28,5 +28,5 @@ library.
 
 ## tb.py
 
-Contains essential helper for clock generation, device-under-test reset,
-random signal toggeling, ...
+Contains essential helper functions for clock generation, device-under-test
+reset, random signal toggeling, ...

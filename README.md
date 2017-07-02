@@ -1,6 +1,7 @@
 # cocotb library
 
-This repository contains some helpful cocotb classes and functions that I
+This repository contains some helpful
+[cocotb](http://potential.ventures/cocotb/) classes and functions that I
 frequently use to write test benches for RTL hardware code.
 
 ## axilite.py

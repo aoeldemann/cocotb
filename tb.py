@@ -2,7 +2,7 @@
 # Project:        cocotb
 # File:           tb.py
 # Date Create:    May 17th 2017
-# Date Modified:  May 17th 2017
+# Date Modified:  August 25th 2017
 # Author:         Andreas Oeldemann, TUM <andreas.oeldemann@tum.de>
 #
 # Description:
@@ -30,6 +30,19 @@ def wait_n_cycles(sig_clk, n_cycles):
     """ Waits a specific number of rising clock events. """
     for _ in range(n_cycles):
         yield RisingEdge(sig_clk)
+
+@cocotb.coroutine
+def rst(sig_clk, sig_rst):
+    """ Resets the DUT.
+
+    Triggers the reset signal of the DUT for 5 clock cycles. Provided reset
+    signal must be active high.
+    """
+    yield RisingEdge(sig_clk)
+    sig_rst <= 1
+    yield wait_n_cycles(sig_clk, 5)
+    sig_rst <= 0
+    yield RisingEdge(sig_clk)
 
 @cocotb.coroutine
 def rstn(sig_clk, sig_rstn):

@@ -16,34 +16,45 @@ from math import log
 from array import array
 from netaddr import IPAddress
 
-def gen_packet():
-    """Generate a random IP v4/v6, TCP/UDP packet.
+def gen_packet(gen_ip = True, gen_tcpudp = True):
+    """Generates a random Ethernet frame.
 
-    Generates a Scapy IP v4/v6 packet with random source and destination
-    addresses, as well as a random length. MAC source and destination addresses
-    are fixed.
+    Generates a Scapy Ethernet Frame that can optionally (by default it does)
+    include an IP v4/v6 packet and a TCP/UDP datagram with random addresses.
+    The generated packet has a random length and random payload contant. MAC
+    source and destination addresses are fixed.
     """
 
+    # if we want to create a TCP/UDP datagram, for now we can only encapsulate
+    # it in an IP packet
+    if gen_tcpudp:
+        assert gen_ip
+
     # fix source and destination mac adresses
-    eth = Ether(dst="53:00:00:00:00:01", src="53:00:00:00:00:02")
+    pkt = Ether(dst="53:00:00:00:00:01", src="53:00:00:00:00:02")
 
-    # randomly chose IP v4 or v6 version
-    if randint(0, 1) == 0:
-        ip = IP(dst=RandIP()._fix(), src=RandIP()._fix())
-    else:
-        ip = IPv6(src=RandIP6()._fix(), dst=RandIP6()._fix())
+    if gen_ip:
+        # randomly chose IP v4 or v6 version
+        if randint(0, 1) == 0:
+            ip = IP(dst=RandIP()._fix(), src=RandIP()._fix())
+        else:
+            ip = IPv6(src=RandIP6()._fix(), dst=RandIP6()._fix())
 
-    sport = randint(1024, 2**16-1)
-    dport = randint(1024, 2**16-1)
+        pkt = pkt/ip
 
-    if randint(0, 1) == 0:
-        l4 = TCP(sport=sport, dport=dport)
-    else:
-        l4 = UDP(sport=sport, dport=dport)
+        if gen_tcpudp:
+            sport = randint(1024, 2**16-1)
+            dport = randint(1024, 2**16-1)
 
-    # assemble packet, add random number of random bytes after IP header
-    return eth/ip/l4/ \
-        ''.join(chr(randint(0, 255)) for _ in range(randint(0, 1000)))
+            if randint(0, 1) == 0:
+                l4 = TCP(sport=sport, dport=dport)
+            else:
+                l4 = UDP(sport=sport, dport=dport)
+
+            pkt = pkt/l4
+
+    # add random bytes after IP header
+    return pkt/''.join(chr(randint(0, 255)) for _ in range(randint(0, 1000)))
 
 def packet_to_axis_data(pkt, datapath_bit_width):
     """Convert packet to AXI-Stream data.

@@ -10,6 +10,8 @@
 # Functions to calculate CRC checksums.
 #
 
+import struct
+
 def _crc16_initial(c):
     """Creates initial CRC16 table values. """
 

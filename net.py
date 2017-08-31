@@ -54,7 +54,7 @@ def gen_packet(gen_ip = True, gen_tcpudp = True):
             pkt = pkt/l4
 
     # add random bytes after IP header
-    return pkt/''.join(chr(randint(0, 255)) for _ in range(randint(0, 1000)))
+    return pkt/''.join(chr(randint(0, 255)) for _ in range(randint(50, 1000)))
 
 def packet_to_axis_data(pkt, datapath_bit_width):
     """Convert packet to AXI-Stream data.

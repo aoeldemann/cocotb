@@ -14,6 +14,10 @@ writing and reading to/from a device-under-test via an AXI4-Lite interface.
 Contains `AXIS_Writer` and `AXIS_Reader` classes. They allow for easy writing
 and reading to/from a device-under-test via an AXI4-Stream interface.
 
+## crc.py
+
+Contains functions to calculate CRC checksums (currently CRC16 only).
+
 ## mem.py
 
 Contains a simple model of a random-access memory, which can be read from via

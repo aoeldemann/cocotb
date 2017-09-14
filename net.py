@@ -16,45 +16,104 @@ from math import log
 from array import array
 from netaddr import IPAddress
 
-def gen_packet(gen_ip = True, gen_tcpudp = True):
-    """Generates a random Ethernet frame.
+def gen_packet(eth_only = False):
+    """Generates a random IP packet. """
 
-    Generates a Scapy Ethernet Frame that can optionally (by default it does)
-    include an IP v4/v6 packet and a TCP/UDP datagram with random addresses.
-    The generated packet has a random length and random payload contant. MAC
-    source and destination addresses are fixed.
-    """
+    # all generated packets have an Ethernet layer. MAC addresses are not
+    # evaluated by parser, so leave them fixed
+    pkt = Ether(src="53:00:00:00:00:01", dst="53:00:00:00:00:02")
 
-    # if we want to create a TCP/UDP datagram, for now we can only encapsulate
-    # it in an IP packet
-    if gen_tcpudp:
-        assert gen_ip
+    if eth_only == False:
 
-    # fix source and destination mac adresses
-    pkt = Ether(dst="53:00:00:00:00:01", src="53:00:00:00:00:02")
-
-    if gen_ip:
-        # randomly chose IP v4 or v6 version
-        if randint(0, 1) == 0:
-            ip = IP(dst=RandIP()._fix(), src=RandIP()._fix())
+        # encapsulate IP packet
+        if random.randint(0, 1) == 0:
+            pkt /= IP(src=RandIP()._fix(), dst=RandIP()._fix())
         else:
-            ip = IPv6(src=RandIP6()._fix(), dst=RandIP6()._fix())
+            pkt /= IPv6(src=RandIP6()._fix(), dst=RandIP6()._fix())
 
-        pkt = pkt/ip
-
-        if gen_tcpudp:
-            sport = randint(1024, 2**16-1)
-            dport = randint(1024, 2**16-1)
-
-            if randint(0, 1) == 0:
-                l4 = TCP(sport=sport, dport=dport)
+        if IP in pkt: # generated packet L3 is IPv4
+            rand = random.random()
+            if rand < 0.1:
+                # mark some packets as fragmeents
+                if random.randint(0, 1) == 0:
+                    pkt[IP].flags = 1 # set MF flag
+                else:
+                    pkt[IP].frag = random.randint(1, 2**13-1) # frag offset
+            elif rand < 0.2:
+                # encapsulate an IPv6 packet in some others
+                pkt /= IPv6(src=RandIP6()._fix(), dst=RandIP6()._fix())
+            elif rand < 0.8:
+                # encapsulate TCP / UDP payload in some more
+                if random.randint(0, 1) == 0:
+                    pkt /= TCP(sport=random.randint(0, 2**16-1),
+                            dport=random.randint(0, 2**16-1))
+                else:
+                    pkt /= UDP(sport=random.randint(0, 2**16-1),
+                            dport=random.randint(0, 2**16-1))
             else:
-                l4 = UDP(sport=sport, dport=dport)
+                # do not encalsulate in all others
+                pass
 
-            pkt = pkt/l4
+        elif IPv6 in pkt: # generated packet L3 is IPv6
+            rand = random.random()
+            if rand < 0.8:
+                # encapsulate TCP / UDP payload in some more
+                if random.randint(0, 1) == 0:
+                    pkt /= TCP(sport=random.randint(0, 2**16-1),
+                            dport=random.randint(0, 2**16-1))
+                else:
+                    pkt /= UDP(sport=random.randint(0, 2**16-1),
+                            dport=random.randint(0, 2**16-1))
+            else:
+                # encapsulate nothing
+                pass
 
-    # add random bytes after IP header
-    return pkt/''.join(chr(randint(0, 255)) for _ in range(randint(50, 1000)))
+    # append some random payload
+    pkt /= ''.join(chr(random.randint(0, 255)) for _ in
+            range(random.randint(50, 1000)))
+
+    return pkt
+
+
+#def gen_packet(gen_ip = True, gen_tcpudp = True):
+#    """Generates a random Ethernet frame.
+#
+#    Generates a Scapy Ethernet Frame that can optionally (by default it does)
+#    include an IP v4/v6 packet and a TCP/UDP datagram with random addresses.
+#    The generated packet has a random length and random payload contant. MAC
+#    source and destination addresses are fixed.
+#    """
+#
+#    # if we want to create a TCP/UDP datagram, for now we can only encapsulate
+#    # it in an IP packet
+#    if gen_tcpudp:
+#        assert gen_ip
+#
+#    # fix source and destination mac adresses
+#    pkt = Ether(dst="53:00:00:00:00:01", src="53:00:00:00:00:02")
+#
+#    if gen_ip:
+#        # randomly chose IP v4 or v6 version
+#        if randint(0, 1) == 0:
+#            ip = IP(dst=RandIP()._fix(), src=RandIP()._fix())
+#        else:
+#            ip = IPv6(src=RandIP6()._fix(), dst=RandIP6()._fix())
+#
+#        pkt = pkt/ip
+#
+#        if gen_tcpudp:
+#            sport = randint(1024, 2**16-1)
+#            dport = randint(1024, 2**16-1)
+#
+#            if randint(0, 1) == 0:
+#                l4 = TCP(sport=sport, dport=dport)
+#            else:
+#                l4 = UDP(sport=sport, dport=dport)
+#
+#            pkt = pkt/l4
+#
+#    # add random bytes after IP header
+#    return pkt/''.join(chr(randint(0, 255)) for _ in range(randint(50, 1000)))
 
 def packet_to_axis_data(pkt, datapath_bit_width):
     """Convert packet to AXI-Stream data.

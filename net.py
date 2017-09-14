@@ -152,20 +152,22 @@ def axis_data_to_packet(tdata, tkeep, datapath_bit_width):
     return Ether(pkt_data.tostring())
 
 def calc_toeplitz_hash(pkt, key, key_len):
-    """Calculates the Toeplitz hash value for an IPv4/IPv4 (+ TCP/UDP packet).
+    """Calculates the Toeplitz hash value for an IP packet.
 
+    The function calculates the Toeplitz hash value for an IPv4/IPv6 packet
+    than can optionally encapsulate a TCP or UDP L4. The hash value is commonly
+    used for receive side scaling. The function expects three inputs: 1) a
+    scapy packet, 2) the hash function key and 3) the length of the hash
+    function key in bytes.
 
-    The function calculates the Toeplitz hash value for an IPv4/IPv4
-    (+ TCP/UDP) packet. This value is commonly used for receive side scaling.
-    The function expects three inputs: 1) a scapy packet, 2) the hash function
-    key and 3) the length of the hash function key in bytes.
+    For IPv4 packets that are a fragment (i.e. flag MF set or frag. offset
+    != 0), the hash value is only calculated based on source and destination
+    IP addresses and possible TCP/UDP layers are not taken into account.
 
-    In its current implementation, the hash value is only calculated for
-    IPv4/IPv6 packets that contain a TCP or UDP payload. For non-IP packets an
-    error is thrown. For IP packets that do not contain a TCP or UDP payload
-    (and are not IPV4 fragments), a hash value of zero is returned. For IPv4
-    packet fragments (no matter what L4 payload they contain), the hash value
-    is calculated based on the IPv4 addresses.
+    For IPv4 packets that encapsulate an IPv6 packet (i.e. IP6in4, protocol
+    number 0x29), the hash is calculated based on the source and destination
+    addresses of the inner IPv6 packet. Possible L4 layers within the IPv6
+    packet are not taken into account.
     """
 
     # only calculate toeplitz hash for IPv4 and IPv6 packets
@@ -183,19 +185,20 @@ def calc_toeplitz_hash(pkt, key, key_len):
         dataLen = 256
 
     if l3 == IP and (pkt[IP].flags == 1 or pkt[IP].frag != 0):
-        # for fragmented packets, only hash ipv4 header
+        # for fragmented packets, only hash IPv4 header
         pass
+    if l3 == IP and IPv6 in pkt[IP]:
+        # IPv4 packet encapsulates an IPv6 packet -> calculate hash based on
+        # IPv6 source and destination addresses
+        data = int(IPAddress(pkt[IPv6].src, 6)) << 128
+        data |= int(IPAddress(pkt[IPv6].dst, 6))
+        dataLen = 256
     elif TCP in pkt[l3]: # L4 is TCP
         data = (data << 32) | (pkt[l3][TCP].sport << 16) | pkt[l3][TCP].dport
         dataLen += 32
     elif UDP in pkt[l3]: # L4 is UDP
         data = (data << 32) | (pkt[l3][UDP].sport << 16) | pkt[l3][UDP].dport
         dataLen += 32
-    else:
-        # not a fragmented IPv4 packet and L4 is neither TCP, nor UDP.
-        # for now we return a hash value of zero. At least that is what the
-        # Intel X710 NIC does...
-        return 0
 
     # initialize data mask
     dataMask = 1 << (dataLen - 1)

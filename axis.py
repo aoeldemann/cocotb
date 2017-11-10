@@ -2,7 +2,7 @@
 # Project:        cocotb
 # File:           axis.py
 # Date Create:    May 17th 2017
-# Date Modified:  June 30th 2017
+# Date Modified:  November 10th 2017
 # Author:         Andreas Oeldemann, TUM <andreas.oeldemann@tum.de>
 #
 # Description:
@@ -29,15 +29,27 @@ class AXIS_Writer(AXIS):
         if signal_name_prefix == None:
             self._s_axis_tdata = dut.s_axis_tdata
             self._s_axis_tvalid = dut.s_axis_tvalid
-            self._s_axis_tready = dut.s_axis_tready
             self._s_axis_tlast = dut.s_axis_tlast
             self._s_axis_tkeep = dut.s_axis_tkeep
+
+            # flow control (tready) is optional
+            try:
+                self._s_axis_tready = dut.s_axis_tready
+            except AttributeError:
+                self._s_axis_tready = None
+
         else:
             self._s_axis_tdata = getattr(dut, "%s_tdata" % signal_name_prefix)
             self._s_axis_tvalid = getattr(dut, "%s_tvalid" % signal_name_prefix)
-            self._s_axis_tready = getattr(dut, "%s_tready" % signal_name_prefix)
             self._s_axis_tlast = getattr(dut, "%s_tlast" % signal_name_prefix)
             self._s_axis_tkeep = getattr(dut, "%s_tkeep" % signal_name_prefix)
+
+            # flow control (tready) is optional
+            try:
+                self._s_axis_tready = getattr(dut, "%s_tready" %
+                        signal_name_prefix)
+            except AttributeError:
+                self._s_axis_tready = None
 
     def rst(self):
         """Sets AXI Stream master interface signals to reset value. """
@@ -69,7 +81,7 @@ class AXIS_Writer(AXIS):
 
             while True:
                 yield edge
-                if int(self._s_axis_tready) == 1:
+                if self._s_axis_tready == None or int(self._s_axis_tready) == 1:
                     break
 
         self._s_axis_tvalid <= 0
@@ -83,15 +95,27 @@ class AXIS_Reader(AXIS):
         if signal_name_prefix == None:
             self._m_axis_tdata = dut.m_axis_tdata
             self._m_axis_tvalid = dut.m_axis_tvalid
-            self._m_axis_tready = dut.m_axis_tready
             self._m_axis_tlast = dut.m_axis_tlast
             self._m_axis_tkeep = dut.m_axis_tkeep
+
+            # flow control (tready) is optional
+            try:
+                self._m_axis_tready = dut.m_axis_tready
+            except AttributeError:
+                self._m_axis_tready = None
+
         else:
             self._m_axis_tdata = getattr(dut, "%s_tdata" % signal_name_prefix)
             self._m_axis_tvalid = getattr(dut, "%s_tvalid" % signal_name_prefix)
-            self._m_axis_tready = getattr(dut, "%s_tready" % signal_name_prefix)
             self._m_axis_tlast = getattr(dut, "%s_tlast" % signal_name_prefix)
             self._m_axis_tkeep = getattr(dut, "%s_tkeep" % signal_name_prefix)
+
+            # flow control (tready) is optional
+            try:
+                self._m_axis_tready = getattr(dut, "%s_tready" %
+                        signal_name_prefix)
+            except AttributeError:
+                self._m_axis_tready = None
 
     def rst(self):
         """Sets AXI Stream slave interface signals to reset value. """
@@ -111,7 +135,8 @@ class AXIS_Reader(AXIS):
         while True:
             yield edge
 
-            if int(self._m_axis_tready) and int(self._m_axis_tvalid):
+            if (self._m_axis_tready == None or int(self._m_axis_tready)) and \
+                    int(self._m_axis_tvalid):
                 tdata.append(int(self._m_axis_tdata))
 
                 if int(self._m_axis_tlast):

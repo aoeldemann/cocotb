@@ -2,7 +2,7 @@
 # Project:        cocotb
 # File:           axis.py
 # Date Create:    May 17th 2017
-# Date Modified:  November 10th 2017
+# Date Modified:  November 12th 2017
 # Author:         Andreas Oeldemann, TUM <andreas.oeldemann@tum.de>
 #
 # Description:
@@ -35,8 +35,16 @@ class AXIS_Writer(AXIS):
             # flow control (tready) is optional
             try:
                 self._s_axis_tready = dut.s_axis_tready
+                self._has_tready = True
             except AttributeError:
-                self._s_axis_tready = None
+                self._has_tready = False
+
+            # tuser is optional
+            try:
+                self._s_axis_tuser = dut.s_axis_tuser
+                self._has_tuser = True
+            except AttributeError:
+                self._has_tuser = False
 
         else:
             self._s_axis_tdata = getattr(dut, "%s_tdata" % signal_name_prefix)
@@ -48,8 +56,17 @@ class AXIS_Writer(AXIS):
             try:
                 self._s_axis_tready = getattr(dut, "%s_tready" %
                         signal_name_prefix)
+                self._has_tready = True
             except AttributeError:
-                self._s_axis_tready = None
+                self._has_tready = False
+
+            # tuser is optional
+            try:
+                self._s_axis_tuser = getattr(dut, "%s_tuser" %
+                        signal_name_prefix)
+                self._has_tuser = True
+            except AttributeError:
+                self._has_tuser = False
 
     def rst(self):
         """Sets AXI Stream master interface signals to reset value. """
@@ -57,9 +74,11 @@ class AXIS_Writer(AXIS):
         self._s_axis_tvalid <= 0
         self._s_axis_tlast <= 0
         self._s_axis_tkeep <= 0
+        if self._has_tuser:
+            self._s_axis_tuser <= 0
 
     @cocotb.coroutine
-    def write(self, tdata, tkeep):
+    def write(self, tdata, tkeep, tuser = None):
         """Perform write on AXI Stream slave interface.
 
         Writes a complete transfer on the AXI Stream slave interface. The
@@ -73,6 +92,12 @@ class AXIS_Writer(AXIS):
             self._s_axis_tdata <= word
             self._s_axis_tvalid <= 1
 
+            if self._has_tuser:
+                if i < len(tuser):
+                    self._s_axis_tuser <= tuser[i]
+                else:
+                    self._s_axis_tuser <= 0
+
             if i == len(tdata)-1:
                 self._s_axis_tlast <= 1
                 self._s_axis_tkeep <= tkeep
@@ -81,7 +106,7 @@ class AXIS_Writer(AXIS):
 
             while True:
                 yield edge
-                if self._s_axis_tready == None or int(self._s_axis_tready) == 1:
+                if self._has_tready == False or int(self._s_axis_tready) == 1:
                     break
 
         self._s_axis_tvalid <= 0
@@ -101,8 +126,16 @@ class AXIS_Reader(AXIS):
             # flow control (tready) is optional
             try:
                 self._m_axis_tready = dut.m_axis_tready
+                self._has_tready = True
             except AttributeError:
-                self._m_axis_tready = None
+                self._has_tready = False
+
+            # tuser is optional
+            try:
+                self._m_axis_tuser = dut.m_axis_tuser
+                self._has_tuser = True
+            except AttributeError:
+                self._has_tuser = False
 
         else:
             self._m_axis_tdata = getattr(dut, "%s_tdata" % signal_name_prefix)
@@ -114,12 +147,22 @@ class AXIS_Reader(AXIS):
             try:
                 self._m_axis_tready = getattr(dut, "%s_tready" %
                         signal_name_prefix)
+                self._has_tready = True
             except AttributeError:
-                self._m_axis_tready = None
+                self._has_tready = False
+
+            # tuser is optional
+            try:
+                self._m_axis_tuser = getattr(dut, "%s_tuser" %
+                        signal_name_prefix)
+                self._has_tuser = True
+            except:
+                self._has_tuser = False
 
     def rst(self):
         """Sets AXI Stream slave interface signals to reset value. """
-        self._m_axis_tready <= 0
+        if self._has_tready:
+            self._m_axis_tready <= 0
 
     @cocotb.coroutine
     def read(self):
@@ -132,12 +175,21 @@ class AXIS_Reader(AXIS):
         edge = RisingEdge(self._clk)
         tdata = []
 
+        if self._has_tuser:
+            tuser = []
+        else:
+            tuser = None
+
         while True:
             yield edge
 
-            if (self._m_axis_tready == None or int(self._m_axis_tready)) and \
+            if (self._has_tready == False or int(self._m_axis_tready)) and \
                     int(self._m_axis_tvalid):
+
                 tdata.append(int(self._m_axis_tdata))
+
+                if self._has_tuser:
+                    tuser.append(int(self._m_axis_tuser))
 
                 if int(self._m_axis_tlast):
                     tkeep = int(self._m_axis_tkeep)
@@ -145,4 +197,4 @@ class AXIS_Reader(AXIS):
                 elif int(self._m_axis_tkeep) != pow(2, self._bit_width/8)-1:
                     raise cocotb.result.TestFailure("invalid AXIS tkeep signal")
 
-        raise ReturnValue((tdata, tkeep))
+        raise ReturnValue((tdata, tkeep, tuser))

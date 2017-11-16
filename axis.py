@@ -2,7 +2,7 @@
 # Project:        cocotb
 # File:           axis.py
 # Date Create:    May 17th 2017
-# Date Modified:  November 12th 2017
+# Date Modified:  November 15th 2017
 # Author:         Andreas Oeldemann, TUM <andreas.oeldemann@tum.de>
 #
 # Description:
@@ -14,6 +14,7 @@
 import cocotb
 from cocotb.triggers import RisingEdge
 from cocotb.result import ReturnValue
+import random
 
 class AXIS(object):
 
@@ -108,6 +109,12 @@ class AXIS_Writer(AXIS):
                 yield edge
                 if self._has_tready == False or int(self._s_axis_tready) == 1:
                     break
+
+            # with a chance of 20%, insert a clock cycle in which no data is
+            # ready to be transmitted by setting tvalid low
+            if i != len(tdata)-1 and random.random() < 0.2:
+                self._s_axis_tvalid <= 0
+                yield edge
 
         self._s_axis_tvalid <= 0
         self._s_axis_tlast <= 0

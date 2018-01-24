@@ -2,54 +2,67 @@
 # Project:        cocotb
 # File:           mem.py
 # Date Create:    May 29th 2017
-# Date Modified:  June 2nd 2017
+# Date Modified:  January 23rd 2018
 # Author:         Andreas Oeldemann, TUM <andreas.oeldemann@tum.de>
 #
 # Description:
 #
 # Memory module. Acts as a simplified AXI slave and allows attached DUTs to read
-# data from a specified memory file.
+# data from a specific memory location. Writes to the memory are currently only
+# possible via python function calls. The AXI slave write interface is not
+# implemented.
 #
 
 import cocotb
 from cocotb.triggers import RisingEdge
 from tb import wait_n_cycles, toggle_signal
 from random import randint
-import mmap
 
 class Mem(object):
     """ Memory module.
 
-    Acts as a simplified AXI slave and allows attached DUTs to read data from a
-    specified memory file.
+    Acts as a simplified AXI slave that allows attached DUTs to read data from a
+    specific memory location. Writes to the memory are currently only possible
+    via python function calls. The AXI slave write interface is not implemented.
+
     """
 
-    def __init__(self, memfilename):
-        """Initializes memory module.
+    def __init__(self, size, offset = 0):
+        """Initializes an empty memory with the specified byte size. """
 
-        Initializes memory module. Expects parameter providing the name of the
-        file from which memory accesses should be read from.
-        """
+        # initialize empty memory
+        self._data = ['\x00'] * size
+        self._offset = offset
 
-        # open file and mmap it
-        self._memfile = open(memfilename, "r+b")
-        self._mm = mmap.mmap(self._memfile.fileno(), 0, access=mmap.ACCESS_READ)
 
-    def close(self):
-        """Closes a previously opened memory file. """
+    def write(self, addr, data, size):
+        """Writes data to the memory. """
 
-        self._mm.close()
-        self._memfile.close()
+        assert addr >= self._offset
+        addr -= self._offset
+        assert (addr + size) <= self.size()
+
+        self._data[addr:addr+size] = data
 
     def read(self, addr, size):
-        """Reads data from memory file.
+        """Reads data from the memory (original byte order). """
 
-        Returns <sizes> bytes of data from address <addr> of the mmaped memory
-        file.
-        """
+        assert addr >= self._offset
+        addr -= self._offset
+        assert (addr + size) <= self.size()
 
-        # read data from mmaped file and convert to hex string
-        data = self._mm[addr:addr+size].encode('hex')
+        return int("".join(self._data[addr:addr+size]).encode('hex'), 16)
+
+
+    def read_reverse_byte_order(self, addr, size):
+        """Reads data from the memory (reverse byte order). """
+
+        assert addr >= self._offset
+        addr -= self._offset
+        assert (addr + size) <= self.size()
+
+        # read data and convert to hex string
+        data = "".join(self._data[addr:addr+size]).encode('hex')
 
         # reverse byte order
         data = "".join(reversed([data[i:i+2] for i in range(0, len(data), 2)]))
@@ -57,20 +70,26 @@ class Mem(object):
         # return data
         return int(data, 16)
 
-    def read_no_reverse_byte_order(self, addr, size):
-        """Reads data from memory file without reversing byte order.
+    def set_size(self, size):
+        """Updates the memory size. """
 
-        Returns <sizes> bytes of data from address <addr> of the mmaped memory
-        file. Attention: this is not how data is reprensented in the hardware
-        memory.
-        """
+        self._data = ['\x00'] * size
 
-        return int(self._mm[addr:addr+size].encode('hex'), 16)
+    def set_offset(self, offset):
+        """Updates the memory offset address. """
+
+        self._offset = offset
 
     def size(self):
-        """Returns the size of the mmaped memory file. """
+        """Returns the memory size. """
 
-        return len(self._mm)
+        return len(self._data)
+
+    def clear(self):
+        """Clears the memory content. """
+
+        for i in range(len(self._data)):
+            self._data[i] = '\x00'
 
     def connect(self, dut, prefix=None):
         """Connects DUT to the AXI slave interface of the memory module. """
@@ -125,7 +144,8 @@ class Mem(object):
             for i in range(arlen+1):
                 # read data for current burst
                 self._RDATA <= \
-                        self.read(araddr+i*pow(2, arsize), pow(2, arsize))
+                        self.read_reverse_byte_order(
+                                araddr+i*pow(2, arsize), pow(2, arsize))
 
                 # data is valid
                 self._RVALID <= 1

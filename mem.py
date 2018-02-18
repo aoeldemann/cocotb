@@ -2,29 +2,25 @@
 # Project:        cocotb
 # File:           mem.py
 # Date Create:    May 29th 2017
-# Date Modified:  January 23rd 2018
+# Date Modified:  February 18th 2018
 # Author:         Andreas Oeldemann, TUM <andreas.oeldemann@tum.de>
 #
 # Description:
 #
 # Memory module. Acts as a simplified AXI slave and allows attached DUTs to read
-# data from a specific memory location. Writes to the memory are currently only
-# possible via python function calls. The AXI slave write interface is not
-# implemented.
+# and write data from/to a specific memory location.
 #
 
 import cocotb
 from cocotb.triggers import RisingEdge
 from tb import wait_n_cycles, toggle_signal
-from random import randint
+import random
 
 class Mem(object):
     """ Memory module.
 
-    Acts as a simplified AXI slave that allows attached DUTs to read data from a
-    specific memory location. Writes to the memory are currently only possible
-    via python function calls. The AXI slave write interface is not implemented.
-
+    Acts as a simplified AXI slave that allows attached DUTs to read and write
+    data from/to a specific memory location.
     """
 
     def __init__(self, size, offset = 0):
@@ -42,10 +38,28 @@ class Mem(object):
         addr -= self._offset
         assert (addr + size) <= self.size()
 
-        self._data[addr:addr+size] = data
+        # convert to hex string
+        data = "{0:0{1}x}".format(data, 2*size)
+
+        self._data[addr:addr+size] = data.decode('hex')
+
+    def write_reverse_byte_order(self, addr, data, size):
+        """Writes data to the memory (reverse byte order). """
+
+        assert addr >= self._offset
+        addr -= self._offset
+        assert (addr + size) <= self.size()
+
+        # convert to hex string
+        data = "{0:0{1}x}".format(data, 2*size)
+
+        # reverse byte order
+        data = "".join(reversed([data[i:i+2] for i in range(0, len(data), 2)]))
+
+        self._data[addr:addr+size] = data.decode('hex')
 
     def read(self, addr, size):
-        """Reads data from the memory (original byte order). """
+        """Reads data from the memory. """
 
         assert addr >= self._offset
         addr -= self._offset
@@ -53,21 +67,18 @@ class Mem(object):
 
         return int("".join(self._data[addr:addr+size]).encode('hex'), 16)
 
-
     def read_reverse_byte_order(self, addr, size):
         """Reads data from the memory (reverse byte order). """
 
-        assert addr >= self._offset
-        addr -= self._offset
-        assert (addr + size) <= self.size()
+        # read data
+        data = self.read(addr, size)
 
-        # read data and convert to hex string
-        data = "".join(self._data[addr:addr+size]).encode('hex')
+        # convert to hex string
+        data = "{0:0{1}x}".format(data, 2*size)
 
         # reverse byte order
         data = "".join(reversed([data[i:i+2] for i in range(0, len(data), 2)]))
 
-        # return data
         return int(data, 16)
 
     def set_size(self, size):
@@ -100,6 +111,8 @@ class Mem(object):
             sig_prefix = "m_axi_%s" % prefix
 
         self._CLK = dut.clk
+
+        # read interface
         self._ARADDR = getattr(dut, "%s_araddr" % sig_prefix)
         self._ARLEN = getattr(dut, "%s_arlen" % sig_prefix)
         self._ARSIZE = getattr(dut, "%s_arsize" % sig_prefix)
@@ -110,61 +123,176 @@ class Mem(object):
         self._RLAST = getattr(dut, "%s_rlast" % sig_prefix)
         self._RVALID = getattr(dut, "%s_rvalid" % sig_prefix)
 
+        # write interface
+        self._AWADDR = getattr(dut, "%s_awaddr" % sig_prefix)
+        self._AWLEN = getattr(dut, "%s_awlen" % sig_prefix)
+        self._AWSIZE = getattr(dut, "%s_awsize" % sig_prefix)
+        self._AWVALID = getattr(dut, "%s_awvalid" % sig_prefix)
+        self._AWREADY = getattr(dut, "%s_awready" % sig_prefix)
+        self._WREADY = getattr(dut, "%s_wready" % sig_prefix)
+        self._WDATA = getattr(dut, "%s_wdata" % sig_prefix)
+        self._WLAST = getattr(dut, "%s_wlast" % sig_prefix)
+        self._WVALID = getattr(dut, "%s_wvalid" % sig_prefix)
+        self._BRESP = getattr(dut, "%s_bresp" % sig_prefix)
+        self._BVALID = getattr(dut, "%s_bvalid" % sig_prefix)
+        self._BREADY = getattr(dut, "%s_bready" % sig_prefix)
+
     @cocotb.coroutine
     def main(self):
-        """AXI slave read interface.
+        """AXI slave read/write interface.
 
-        Allows attached DUT to read memory content via an AXI interface.
+        Allows attached DUT to read/write memory content via an AXI interface.
         """
 
-        # randomly toggle ARREADY signal
-        self._ARREADY <= 1
-        cocotb.fork(toggle_signal(self._CLK, self._ARREADY))
+        # initially read/write address ready signals are low
+        self._ARREADY <= 0
+        self._AWREADY <= 0
 
-        # initially the data invalid
+        # initially the read data is invalid
         self._RVALID <= 0
 
-        while True:
+        # initially no write data is accepted
+        self._WREADY <= 0
 
-            # wait for read request
+        # initially BVALID is low
+        self._BVALID <= 0
+
+        while True: # infinite loop
+
+            read = False
+            write = False
+
+            # wait for read/write request
             while True:
                 yield RisingEdge(self._CLK)
-                if int(self._ARREADY) and int(self._ARVALID):
+
+                # read requests are served before write requests
+                if int(self._ARVALID):
+                    read = True
                     break
 
-            # save address and burst information
-            araddr = int(self._ARADDR)
-            arlen = int(self._ARLEN)
-            arsize = int(self._ARSIZE)
+                if int(self._AWVALID):
+                    write = True
+                    break
 
-            # wait random number of clock cycles
-            yield wait_n_cycles(self._CLK, randint(1, 40))
+            # wait a random number of cycles
+            yield wait_n_cycles(self._CLK, random.randint(0, 10))
 
-            # start answering read request
-            for i in range(arlen+1):
-                # read data for current burst
-                self._RDATA <= \
-                        self.read_reverse_byte_order(
-                                araddr+i*pow(2, arsize), pow(2, arsize))
+            if read:
+                # acknowledge read request
+                self._ARREADY <= 1
 
-                # data is valid
-                self._RVALID <= 1
-
-                # set rlast signal high for last beat of the burst
-                if i == arlen:
-                    self._RLAST <= 1
-                else:
-                    self._RLAST <= 0
-
-                # wait for requestor to get ready to accept data
+                # ARVALID should still be high, but let's explicitly wait and
+                # check anyways
                 while True:
                     yield RisingEdge(self._CLK)
-                    if int(self._RREADY) == 1:
+                    if int(self._ARVALID):
                         break
 
-                # set data to be not valid anymore
-                self._RVALID <= 0
+                # save address and burst information
+                araddr = int(self._ARADDR)
+                arlen = int(self._ARLEN)
+                arsize = int(self._ARSIZE)
 
-                # insert some random gaps between beats of the same burst
-                if i != arlen:
-                    yield wait_n_cycles(self._CLK, randint(0, 5))
+                # deassert ARREADY
+                self._ARREADY <= 0
+
+                # wait a random number of cycles
+                yield wait_n_cycles(self._CLK, random.randint(0, 10))
+
+                # start answering read request
+                for i in range(arlen+1):
+                    # read data for current burst
+                    self._RDATA <= \
+                            self.read_reverse_byte_order(
+                                    araddr+i*pow(2, arsize), pow(2, arsize))
+
+                    # data is valid
+                    self._RVALID <= 1
+
+                    # set rlast signal high for last beat of the burst
+                    if i == arlen:
+                        self._RLAST <= 1
+                    else:
+                        self._RLAST <= 0
+
+                    # wait for requestor to get ready to accept data
+                    while True:
+                        yield RisingEdge(self._CLK)
+                        if int(self._RREADY) == 1:
+                            break
+
+                    # set data to be not valid anymore
+                    self._RVALID <= 0
+
+                    # insert some random gaps between beats of the same burst
+                    if i != arlen:
+                        yield wait_n_cycles(self._CLK, random.randint(0, 5))
+
+            elif write:
+                # acknowledge write request
+                self._AWREADY <= 1
+
+                # AWVALID should still be high, but let's explicitly wait and
+                # check anyways
+                while True:
+                    yield RisingEdge(self._CLK)
+                    if int(self._AWVALID):
+                        break
+
+                # save address and burst information
+                awaddr = int(self._AWADDR)
+                awlen = int(self._AWLEN)
+                awsize = int(self._AWSIZE)
+
+                # deassert AWREADY
+                self._AWREADY <= 0
+
+                # wait a random number of cycles
+                yield wait_n_cycles(self._CLK, random.randint(0, 10))
+
+                # start write
+                for i in range(awlen+1):
+                    # accept data
+                    self._WREADY <= 1
+
+                    # wait for WVALID to become high
+                    while True:
+                        yield RisingEdge(self._CLK)
+                        if int(self._WVALID):
+                            break
+
+                    # get data
+                    data = int(self._WDATA)
+
+                    # write data
+                    self.write_reverse_byte_order(
+                            awaddr+i*pow(2, awsize), data, pow(2, awsize))
+
+                    # check wlast signal
+                    if i == awlen:
+                        assert int(self._WLAST) == 1
+                    else:
+                        assert int(self._WLAST) == 0
+
+                    # set WREADY back low
+                    self._WREADY <= 0
+
+                    # randomly keep WREADY low sometimes for a bit
+                    if i != awlen:
+                       if random.random() < 0.1:
+                           yield wait_n_cycles(self._CLK, random.randint(1, 5))
+
+                # set BRESP and BVALID
+                self._BRESP <= 0
+                self._BVALID <= 1
+
+                # wait for BREADY to become high
+                while True:
+                    yield RisingEdge(self._CLK)
+                    if int(self._BREADY):
+                        break
+
+                # set BVALID back low
+                self._BVALID <= 0
+

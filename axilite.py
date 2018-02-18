@@ -2,7 +2,7 @@
 # Project:        cocotb
 # File:           axilite.py
 # Date Create:    May 17th 2017
-# Date Modified:  June 7th 2017
+# Date Modified:  February 18th 2018
 # Author:         Andreas Oeldemann, TUM <andreas.oeldemann@tum.de>
 #
 # Description:
@@ -19,6 +19,7 @@ class AXI_Lite(object):
 
     def __init__(self, data_width):
         self._data_width = data_width
+        self._access_active = False
 
 class AXI_Lite_Writer(AXI_Lite):
     """AXI Lite interface writer. """
@@ -56,6 +57,13 @@ class AXI_Lite_Writer(AXI_Lite):
         self._check_sigs()
         edge = RisingEdge(self._CLK)
 
+        # serialize access
+        while True:
+            if self._access_active == False:
+                break
+            yield edge
+        self._access_active = True
+
         self._AWADDR <= addr
         self._AWVALID <= 1
 
@@ -85,6 +93,9 @@ class AXI_Lite_Writer(AXI_Lite):
         self._BREADY <= 0
 
         yield edge
+
+        # release access lock
+        self._access_active = False
 
     def connect(self, dut, prefix=None):
         """Connects the DUT AXI Lite interface to this writer.
@@ -141,6 +152,13 @@ class AXI_Lite_Reader(AXI_Lite):
         self._check_sigs()
         edge = RisingEdge(self._CLK)
 
+        # serialize access
+        while True:
+            if self._access_active == False:
+                break
+            yield edge
+        self._access_active = True
+
         self._ARADDR <= addr
         self._ARVALID <= 1
 
@@ -163,6 +181,9 @@ class AXI_Lite_Reader(AXI_Lite):
         data = int(self._RDATA.value)
 
         yield edge
+
+        # release access lock
+        self._access_active = False
 
         raise ReturnValue(data)
 

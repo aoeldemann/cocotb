@@ -2,7 +2,7 @@
 # Project:        cocotb
 # File:           file.py
 # Date Create:    January 22nd 2018
-# Date Modified:  January 24th 2018
+# Date Modified:  February 18th 2018
 # Author:         Andreas Oeldemann, TUM <andreas.oeldemann@tum.de>
 #
 # Description:
@@ -36,11 +36,6 @@ class File(object):
 
         self._mm.close()
         self._file.close()
-
-    def read_bytes(self, addr, size):
-        """Reads data from file (byte list). """
-
-        return self._mm[addr:addr+size]
 
     def read(self, addr, size):
         """Reads data from the file (integer in original byte order). """

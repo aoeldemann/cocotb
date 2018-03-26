@@ -2,7 +2,7 @@
 # Project:        cocotb
 # File:           axis.py
 # Date Create:    May 17th 2017
-# Date Modified:  November 15th 2017
+# Date Modified:  March 24th 2018
 # Author:         Andreas Oeldemann, TUM <andreas.oeldemann@tum.de>
 #
 # Description:
@@ -16,67 +16,55 @@ from cocotb.triggers import RisingEdge
 from cocotb.result import ReturnValue
 import random
 
-class AXIS(object):
+class AXIS_Writer(object):
+    """AXI-Stream interface writer. """
 
-    def __init__(self, dut, bit_width, signal_name = None):
-        self._clk = dut.clk
-        self._bit_width = bit_width
+    def connect(self, dut, clk, bit_width, prefix=None):
+        """Connects the DUT AXI-Stream interface to this writer.
 
-class AXIS_Writer(AXIS):
+        When parameter 'prefix' is not set, DUT AXI-Stream signals are expected
+        to be named s_axis_tdata, s_axis_tvalid, ... If 'prefix' is set, DUT AXI
+        signals are expected to be named s_axis_<prefix>_tdata, ...
+        """
 
-    def __init__(self, dut, bit_width, signal_name_prefix = None):
-        super(self.__class__, self).__init__(dut, bit_width)
+        self.bit_width = bit_width
 
-        if signal_name_prefix == None:
-            self._s_axis_tdata = dut.s_axis_tdata
-            self._s_axis_tvalid = dut.s_axis_tvalid
-            self._s_axis_tlast = dut.s_axis_tlast
-            self._s_axis_tkeep = dut.s_axis_tkeep
-
-            # flow control (tready) is optional
-            try:
-                self._s_axis_tready = dut.s_axis_tready
-                self._has_tready = True
-            except AttributeError:
-                self._has_tready = False
-
-            # tuser is optional
-            try:
-                self._s_axis_tuser = dut.s_axis_tuser
-                self._has_tuser = True
-            except AttributeError:
-                self._has_tuser = False
-
+        if prefix == None:
+            sig_prefix = "s_axis"
         else:
-            self._s_axis_tdata = getattr(dut, "%s_tdata" % signal_name_prefix)
-            self._s_axis_tvalid = getattr(dut, "%s_tvalid" % signal_name_prefix)
-            self._s_axis_tlast = getattr(dut, "%s_tlast" % signal_name_prefix)
-            self._s_axis_tkeep = getattr(dut, "%s_tkeep" % signal_name_prefix)
+            sig_prefix = "s_axis_%s" % prefix
 
-            # flow control (tready) is optional
-            try:
-                self._s_axis_tready = getattr(dut, "%s_tready" %
-                        signal_name_prefix)
-                self._has_tready = True
-            except AttributeError:
-                self._has_tready = False
+        self.clk = clk
+        self.s_axis_tdata = getattr(dut, "%s_tdata" % sig_prefix)
+        self.s_axis_tvalid = getattr(dut, "%s_tvalid" % sig_prefix)
+        self.s_axis_tlast = getattr(dut, "%s_tlast" % sig_prefix)
+        self.s_axis_tkeep = getattr(dut, "%s_tkeep" % sig_prefix)
 
-            # tuser is optional
-            try:
-                self._s_axis_tuser = getattr(dut, "%s_tuser" %
-                        signal_name_prefix)
-                self._has_tuser = True
-            except AttributeError:
-                self._has_tuser = False
+        # flow control (tready) is optional
+        try:
+            self.s_axis_tready = getattr(dut, "%s_tready" % sig_prefix)
+            self.has_tready = True
+        except AttributeError:
+            self.has_tready = False
 
+        # tuser is optional
+        try:
+            self.s_axis_tuser = getattr(dut, "%s_tuser" % sig_prefix)
+            self.has_tuser = True
+        except AttributeError:
+            self.has_tuser = False
+
+    @cocotb.coroutine
     def rst(self):
-        """Sets AXI Stream master interface signals to reset value. """
-        self._s_axis_tdata <= 0
-        self._s_axis_tvalid <= 0
-        self._s_axis_tlast <= 0
-        self._s_axis_tkeep <= 0
-        if self._has_tuser:
-            self._s_axis_tuser <= 0
+        """Signal resets. """
+
+        self.s_axis_tdata <= 0
+        self.s_axis_tvalid <= 0
+        self.s_axis_tlast <= 0
+        self.s_axis_tkeep <= 0
+        if self.has_tuser:
+            self.s_axis_tuser <= 0
+        yield RisingEdge(self.clk)
 
     @cocotb.coroutine
     def write(self, tdata, tkeep, tuser = None):
@@ -84,92 +72,84 @@ class AXIS_Writer(AXIS):
 
         Writes a complete transfer on the AXI Stream slave interface. The
         function expects a list of the TDATA words and the value of the TKEEP
-        signal for the last word transfer.
+        signal for the last word transfer. Optionally, a list of TUSER values
+        can be specified.
         """
-
-        edge = RisingEdge(self._clk)
-
         for i, word in enumerate(tdata):
-            self._s_axis_tdata <= word
-            self._s_axis_tvalid <= 1
+            self.s_axis_tdata <= word
+            self.s_axis_tvalid <= 1
 
-            if self._has_tuser:
+            if self.has_tuser:
                 if i < len(tuser):
-                    self._s_axis_tuser <= tuser[i]
+                    self.s_axis_tuser <= tuser[i]
                 else:
-                    self._s_axis_tuser <= 0
+                    self.s_axis_tuser <= 0
 
             if i == len(tdata)-1:
-                self._s_axis_tlast <= 1
-                self._s_axis_tkeep <= tkeep
+                self.s_axis_tlast <= 1
+                self.s_axis_tkeep <= tkeep
             else:
-                self._s_axis_tkeep <= pow(2, self._bit_width/8)-1
+                self.s_axis_tkeep <= pow(2, self.bit_width/8)-1
 
             while True:
-                yield edge
-                if self._has_tready == False or int(self._s_axis_tready) == 1:
+                yield RisingEdge(self.clk)
+                if self.has_tready == False or int(self.s_axis_tready) == 1:
                     break
 
             # with a chance of 20%, insert a clock cycle in which no data is
             # ready to be transmitted by setting tvalid low
             if i != len(tdata)-1 and random.random() < 0.2:
-                self._s_axis_tvalid <= 0
-                yield edge
+                self.s_axis_tvalid <= 0
+                yield RisingEdge(self.clk)
 
-        self._s_axis_tvalid <= 0
-        self._s_axis_tlast <= 0
+        self.s_axis_tvalid <= 0
+        self.s_axis_tlast <= 0
 
-class AXIS_Reader(AXIS):
+class AXIS_Reader(object):
+    """AXI-Stream interface reader. """
 
-    def __init__(self, dut, bit_width, signal_name_prefix = None):
-        super(self.__class__, self).__init__(dut, bit_width)
+    def connect(self, dut, clk, bit_width, prefix=None):
+        """Connects the DUT AXI-Stream interface to this reader.
 
-        if signal_name_prefix == None:
-            self._m_axis_tdata = dut.m_axis_tdata
-            self._m_axis_tvalid = dut.m_axis_tvalid
-            self._m_axis_tlast = dut.m_axis_tlast
-            self._m_axis_tkeep = dut.m_axis_tkeep
+        When parameter 'prefix' is not set, DUT AXI-Stream signals are expected
+        to be named m_axis_tdata, m_axis_tvalid, ... If 'prefix' is set, DUT AXI
+        signals are expected to be named m_axis_<prefix>_tdata, ...
+        """
 
-            # flow control (tready) is optional
-            try:
-                self._m_axis_tready = dut.m_axis_tready
-                self._has_tready = True
-            except AttributeError:
-                self._has_tready = False
+        self.bit_width = bit_width
 
-            # tuser is optional
-            try:
-                self._m_axis_tuser = dut.m_axis_tuser
-                self._has_tuser = True
-            except AttributeError:
-                self._has_tuser = False
-
+        if prefix == None:
+            sig_prefix = "m_axis"
         else:
-            self._m_axis_tdata = getattr(dut, "%s_tdata" % signal_name_prefix)
-            self._m_axis_tvalid = getattr(dut, "%s_tvalid" % signal_name_prefix)
-            self._m_axis_tlast = getattr(dut, "%s_tlast" % signal_name_prefix)
-            self._m_axis_tkeep = getattr(dut, "%s_tkeep" % signal_name_prefix)
+            sig_prefix = "m_axis_%s" % prefix
 
-            # flow control (tready) is optional
-            try:
-                self._m_axis_tready = getattr(dut, "%s_tready" %
-                        signal_name_prefix)
-                self._has_tready = True
-            except AttributeError:
-                self._has_tready = False
+        self.clk = clk
+        self.m_axis_tdata = getattr(dut, "%s_tdata" % sig_prefix)
+        self.m_axis_tvalid = getattr(dut, "%s_tvalid" % sig_prefix)
+        self.m_axis_tlast = getattr(dut, "%s_tlast" % sig_prefix)
+        self.m_axis_tkeep = getattr(dut, "%s_tkeep" % sig_prefix)
 
-            # tuser is optional
-            try:
-                self._m_axis_tuser = getattr(dut, "%s_tuser" %
-                        signal_name_prefix)
-                self._has_tuser = True
-            except:
-                self._has_tuser = False
+        # flow control (tready) is optional
+        try:
+            self.m_axis_tready = getattr(dut, "%s_tready" % sig_prefix)
+            self.has_tready = True
+        except AttributeError:
+            self.has_tready = False
 
+        # tuser is optional
+        try:
+            self.m_axis_tuser = getattr(dut, "%s_tuser" % sig_prefix)
+            self.has_tuser = True
+        except:
+            self.has_tuser = False
+
+    @cocotb.coroutine
     def rst(self):
-        """Sets AXI Stream slave interface signals to reset value. """
-        if self._has_tready:
-            self._m_axis_tready <= 0
+        """Signal resets. """
+
+        if self.has_tready:
+            self.m_axis_tready <= 0
+        yield RisingEdge(self.clk)
 
     @cocotb.coroutine
     def read(self):
@@ -177,31 +157,34 @@ class AXIS_Reader(AXIS):
 
         Reads a complete transfer on the AXI Stream master interface. The
         function returns a list of the TDATA words and the value of the TKEEP
-        signal for the last word transfer.
+        signal for the last word transfer. If a side-band TUSER interface is
+        present, a list of the values is returned as well.
         """
-        edge = RisingEdge(self._clk)
+
+        # empty tdata list
         tdata = []
 
-        if self._has_tuser:
+        if self.has_tuser:
+            # empty tuser list
             tuser = []
         else:
             tuser = None
 
         while True:
-            yield edge
+            yield RisingEdge(self.clk)
 
-            if (self._has_tready == False or int(self._m_axis_tready)) and \
-                    int(self._m_axis_tvalid):
+            if (self.has_tready == False or int(self.m_axis_tready)) and \
+                    int(self.m_axis_tvalid):
 
-                tdata.append(int(self._m_axis_tdata))
+                tdata.append(int(self.m_axis_tdata))
 
-                if self._has_tuser:
-                    tuser.append(int(self._m_axis_tuser))
+                if self.has_tuser:
+                    tuser.append(int(self.m_axis_tuser))
 
-                if int(self._m_axis_tlast):
-                    tkeep = int(self._m_axis_tkeep)
+                if int(self.m_axis_tlast):
+                    tkeep = int(self.m_axis_tkeep)
                     break
-                elif int(self._m_axis_tkeep) != pow(2, self._bit_width/8)-1:
+                elif int(self.m_axis_tkeep) != pow(2, self.bit_width/8)-1:
                     raise cocotb.result.TestFailure("invalid AXIS tkeep signal")
 
         raise ReturnValue((tdata, tkeep, tuser))

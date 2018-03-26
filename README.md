@@ -6,32 +6,34 @@ frequently use to write test benches for RTL hardware code.
 
 ## axilite.py
 
-Contains `AXI_Lite_Writer` and `AXI_Lite_Reader` classes. They allow for easy
-writing and reading to/from a device-under-test via an AXI4-Lite interface.
+AXI Lite helper modules that allow easy reading and writing from/to AXI Lite
+peripheral interfaces.
 
 ## axis.py
 
-Contains `AXIS_Writer` and `AXIS_Reader` classes. They allow for easy writing
-and reading to/from a device-under-test via an AXI4-Stream interface.
+AXI Stream helper modules that allow easy reading and writing from/to AXI
+master/slave Stream interfaces.
 
 ## crc.py
 
-Contains functions to calculate CRC checksums (currently CRC16 only).
+Functions to calculate CRC checksums.
+
+## file.py
+
+Reads an input file and allows memory-mapped access via python function
+calls. Module does not implement any hardware interfaces to connect it to a
+DUT directly.
+
 
 ## mem.py
 
-Contains a simple model of a random-access memory, which can be read from via
-an AXI4 interface. The memory returns read data from a file provided as an
-input. Writes are not yet implemented. The AXI4 interface is simplified (e.g.
-only incremental bursts, no QoS, no locking, ...).
+Memory module. Acts as a simplified AXI slave and allows attached DUTs to read
+and write data from/to a specific memory location.
 
 ## net.py
 
-Contains network related helper functions (e.g. generate random packet,
-convert packet to/from AXI4-Stream format, ...). Makes use of the Python Scapy
-library.
+Provides some handy network related functions.
 
 ## tb.py
 
-Contains essential helper functions for clock generation, device-under-test
-reset, random signal toggeling, ...
+Provides some basic test bench functions that are needed quite frequently.

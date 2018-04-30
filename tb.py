@@ -32,6 +32,8 @@
 import cocotb
 from cocotb.triggers import Timer, RisingEdge
 from random import randint
+import numpy as np
+import sys
 
 @cocotb.coroutine
 def clk_gen(sig_clk, freq_mhz):
@@ -100,3 +102,25 @@ def swp_byte_order(data, bytelen):
     h = '%x' % data
     s = ('0'*(len(h) % 2) + h).zfill(bytelen*2).decode('hex')
     return int(s[::-1].encode('hex'), 16)
+
+
+def print_progress(i, n):
+    """Print simulation progress.
+
+    Parametr 'i' defines the current iteration number (0 <= i < n). Paramter
+    'n' defines the total number of iterations.
+    """
+    # calculate iteration thresholds on which print out shall occur
+    thresholds = np.arange(n/10-1, n, n/10)
+
+    if i == 0:
+        # this is the first iteration
+        print("Status: 0% ..."),
+        sys.stdout.flush()
+    if i in thresholds:
+        # print out progress
+        print("%d%% ..." % int(100.0*float(i+1)/float(n))),
+        sys.stdout.flush()
+    if i == n-1:
+        # this is the last iteration
+        print("done!")

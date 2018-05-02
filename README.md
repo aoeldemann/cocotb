@@ -6,33 +6,28 @@ frequently use to write test benches for RTL hardware code.
 
 ## axilite.py
 
-AXI Lite helper modules that allow easy reading and writing from/to AXI Lite
-peripheral interfaces.
+Classes for reading/writing AXI4-Lite interfaces.
 
 ## axis.py
 
-AXI Stream helper modules that allow easy reading and writing from/to AXI
-master/slave Stream interfaces.
+Classes for reading/writing AXI4-Stream interfaces.
 
 ## crc.py
 
-Functions to calculate CRC checksums.
+CRC checksum calculation.
 
 ## file.py
 
-Reads an input file and allows memory-mapped access via python function
-calls. Module does not implement any hardware interfaces to connect it to a
-DUT directly.
+Memory-mapped file access.
 
 
 ## mem.py
 
-Memory module. Acts as a simplified AXI slave and allows attached DUTs to read
-and write data from/to a specific memory location.
+AXI4 memory slave module.
 
 ## net.py
 
-Provides some handy network related functions.
+Some handy networking functions.
 
 ## tb.py
 

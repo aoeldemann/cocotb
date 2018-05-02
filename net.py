@@ -1,6 +1,7 @@
+"""Some handy networking functions."""
+# The MIT License
 #
-# The MIT License (MIT)
-# Copyright (c) 2018 by the author(s)
+# Copyright (c) 2017-2018 by the author(s)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -9,92 +10,93 @@
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
-# OR OTHER DEALINGS IN THE SOFTWARE.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 #
 # Author(s):
-#   Andreas Oeldemann, <andreas.oeldemann@tum.de>
-#
+#   - Andreas Oeldemann <andreas.oeldemann@tum.de>
 #
 # Description:
 #
 # Provides some handy network related functions.
-#
 
-from scapy.all import *
-from random import randint
+from scapy.all import Ether, IP, IPv6, RandIP, RandIP6, TCP, UDP
 from math import log
 from array import array
 from netaddr import IPAddress
+from random import randint, random
 
-def gen_packet(eth_only = False):
-    """Generates a random IP packet. """
 
-    # all generated packets have an Ethernet layer. MAC addresses are not
-    # evaluated by parser, so leave them fixed
+def gen_packet(eth_only=False):
+    """Generate a random network packet.
+
+    By default, function generates a random IPv4 or IPv6 packet, possibly with
+    TCP or UDP payloads. If the 'eth_only' parameter is set to True, the
+    returned packet is an Ethernet frame that does not include any packet
+    headers above layer 2.
+    """
+    # generate ethernet frame with fixed MAC addresses
     pkt = Ether(src="53:00:00:00:00:01", dst="53:00:00:00:00:02")
 
-    if eth_only == False:
-
-        # encapsulate IP packet
-        if random.randint(0, 1) == 0:
+    if not eth_only:  # encapsulate IP packet
+        if randint(0, 1) == 0:
             pkt /= IP(src=RandIP()._fix(), dst=RandIP()._fix())
         else:
             pkt /= IPv6(src=RandIP6()._fix(), dst=RandIP6()._fix())
 
-        if IP in pkt: # generated packet L3 is IPv4
-            rand = random.random()
+        if IP in pkt:  # generated packet L3 is IPv4
+            rand = random()
             if rand < 0.1:
                 # mark some packets as fragmeents
-                if random.randint(0, 1) == 0:
-                    pkt[IP].flags = 1 # set MF flag
+                if randint(0, 1) == 0:
+                    pkt[IP].flags = 1  # set MF flag
                 else:
-                    pkt[IP].frag = random.randint(1, 2**13-1) # frag offset
+                    pkt[IP].frag = randint(1, 2**13-1)  # frag offset
             elif rand < 0.2:
                 # encapsulate an IPv6 packet in some others
                 pkt /= IPv6(src=RandIP6()._fix(), dst=RandIP6()._fix())
             elif rand < 0.8:
                 # encapsulate TCP / UDP payload in some more
-                if random.randint(0, 1) == 0:
-                    pkt /= TCP(sport=random.randint(0, 2**16-1),
-                            dport=random.randint(0, 2**16-1))
+                if randint(0, 1) == 0:
+                    pkt /= TCP(sport=randint(0, 2**16-1),
+                               dport=randint(0, 2**16-1))
                 else:
-                    pkt /= UDP(sport=random.randint(0, 2**16-1),
-                            dport=random.randint(0, 2**16-1))
+                    pkt /= UDP(sport=randint(0, 2**16-1),
+                               dport=randint(0, 2**16-1))
             else:
                 # do not encalsulate in all others
                 pass
 
-        elif IPv6 in pkt: # generated packet L3 is IPv6
-            rand = random.random()
+        elif IPv6 in pkt:  # generated packet L3 is IPv6
+            rand = random()
             if rand < 0.8:
                 # encapsulate TCP / UDP payload in some more
-                if random.randint(0, 1) == 0:
-                    pkt /= TCP(sport=random.randint(0, 2**16-1),
-                            dport=random.randint(0, 2**16-1))
+                if randint(0, 1) == 0:
+                    pkt /= TCP(sport=randint(0, 2**16-1),
+                               dport=randint(0, 2**16-1))
                 else:
-                    pkt /= UDP(sport=random.randint(0, 2**16-1),
-                            dport=random.randint(0, 2**16-1))
+                    pkt /= UDP(sport=randint(0, 2**16-1),
+                               dport=randint(0, 2**16-1))
             else:
                 # encapsulate nothing
                 pass
 
     # append some random payload
-    pkt /= ''.join(chr(random.randint(0, 255)) for _ in
-            range(random.randint(50, 1000)))
+    pkt /= ''.join(chr(randint(0, 255)) for _ in
+                   range(randint(50, 1000)))
 
     return pkt
 
 
-#def gen_packet(gen_ip = True, gen_tcpudp = True):
+# def gen_packet(gen_ip = True, gen_tcpudp = True):
 #    """Generates a random Ethernet frame.
 #
 #    Generates a Scapy Ethernet Frame that can optionally (by default it does)
@@ -152,6 +154,7 @@ def packet_to_axis_data(pkt, datapath_bit_width):
     tdata = map(lambda x: int(x[::-1].encode('hex'), 16), tdata)
     return (tdata, tkeep)
 
+
 def axis_data_to_packet(tdata, tkeep, datapath_bit_width):
     """Convert AXI-Stream data to packet.
 
@@ -170,8 +173,9 @@ def axis_data_to_packet(tdata, tkeep, datapath_bit_width):
             tdata_word >>= 8
     return Ether(pkt_data.tostring())
 
+
 def calc_toeplitz_hash(pkt, key, key_len):
-    """Calculates the Toeplitz hash value for an IP packet.
+    """Calculate the Toeplitz hash value for an IP packet.
 
     The function calculates the Toeplitz hash value for an IPv4/IPv6 packet
     than can optionally encapsulate a TCP or UDP L4. The hash value is commonly
@@ -188,16 +192,15 @@ def calc_toeplitz_hash(pkt, key, key_len):
     addresses of the inner IPv6 packet. Possible L4 layers within the IPv6
     packet are not taken into account.
     """
-
     # only calculate toeplitz hash for IPv4 and IPv6 packets
     assert (IP in pkt) or (IPv6 in pkt)
 
-    if IP in pkt: # L3 is IPv4
+    if IP in pkt:  # L3 is IPv4
         data = int(IPAddress(pkt[IP].src)) << 32
         data |= int(IPAddress(pkt[IP].dst))
         l3 = IP
         dataLen = 64
-    elif IPv6 in pkt: # L3 is IPv6
+    elif IPv6 in pkt:  # L3 is IPv6
         data = int(IPAddress(pkt[IPv6].src, 6)) << 128
         data |= int(IPAddress(pkt[IPv6].dst, 6))
         l3 = IPv6
@@ -212,10 +215,10 @@ def calc_toeplitz_hash(pkt, key, key_len):
         data = int(IPAddress(pkt[IPv6].src, 6)) << 128
         data |= int(IPAddress(pkt[IPv6].dst, 6))
         dataLen = 256
-    elif TCP in pkt[l3]: # L4 is TCP
+    elif TCP in pkt[l3]:  # L4 is TCP
         data = (data << 32) | (pkt[l3][TCP].sport << 16) | pkt[l3][TCP].dport
         dataLen += 32
-    elif UDP in pkt[l3]: # L4 is UDP
+    elif UDP in pkt[l3]:  # L4 is UDP
         data = (data << 32) | (pkt[l3][UDP].sport << 16) | pkt[l3][UDP].dport
         dataLen += 32
 
@@ -228,7 +231,7 @@ def calc_toeplitz_hash(pkt, key, key_len):
     # do the hashing
     for i in range(dataLen):
         if data & dataMask:
-           hashval ^= (key >> (key_len * 8 - 32 - i)) & 0xFFFFFFFF
+            hashval ^= (key >> (key_len * 8 - 32 - i)) & 0xFFFFFFFF
         dataMask = dataMask >> 1
 
     return hashval

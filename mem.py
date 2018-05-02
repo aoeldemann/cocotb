@@ -1,6 +1,7 @@
+"""AXI4 memory slave module."""
+# The MIT License
 #
-# The MIT License (MIT)
-# Copyright (c) 2018 by the author(s)
+# Copyright (c) 2017-2018 by the author(s)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -9,50 +10,46 @@
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
-# OR OTHER DEALINGS IN THE SOFTWARE.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 #
 # Author(s):
-#   Andreas Oeldemann, <andreas.oeldemann@tum.de>
-#
+#   - Andreas Oeldemann <andreas.oeldemann@tum.de>
 #
 # Description:
 #
-# Memory module. Acts as a simplified AXI slave and allows attached DUTs to read
-# and write data from/to a specific memory location.
-#
+# Memory module. Acts as a simplified AXI4 slave and allows attached DuTs to
+# read and write data from/to a specific memory location.
 
 import cocotb
 from cocotb.triggers import RisingEdge
-from tb import wait_n_cycles, toggle_signal
+from tb import wait_n_cycles
 import random
 
+
 class Mem(object):
-    """ Memory module.
+    """Memory module.
 
     Acts as a simplified AXI slave that allows attached DUTs to read and write
     data from/to a specific memory location.
     """
 
-    def __init__(self, size, offset = 0):
-        """Initializes an empty memory with the specified byte size. """
-
+    def __init__(self, size, offset=0):
+        """Initialize an empty memory with the specified byte size."""
         # initialize empty memory
         self._data = ['\x00'] * size
         self._offset = offset
 
-
     def write(self, addr, data, size):
-        """Writes data to the memory. """
-
+        """Write data to the memory."""
         assert addr >= self._offset
         addr -= self._offset
         assert (addr + size) <= self.size()
@@ -63,8 +60,7 @@ class Mem(object):
         self._data[addr:addr+size] = data.decode('hex')
 
     def write_reverse_byte_order(self, addr, data, size):
-        """Writes data to the memory (reverse byte order). """
-
+        """Write data to the memory (reverse byte order)."""
         assert addr >= self._offset
         addr -= self._offset
         assert (addr + size) <= self.size()
@@ -78,8 +74,7 @@ class Mem(object):
         self._data[addr:addr+size] = data.decode('hex')
 
     def read(self, addr, size):
-        """Reads data from the memory. """
-
+        """Read data from the memory."""
         assert addr >= self._offset
         addr -= self._offset
         assert (addr + size) <= self.size()
@@ -87,8 +82,7 @@ class Mem(object):
         return int("".join(self._data[addr:addr+size]).encode('hex'), 16)
 
     def read_reverse_byte_order(self, addr, size):
-        """Reads data from the memory (reverse byte order). """
-
+        """Read data from the memory (reverse byte order)."""
         # read data
         data = self.read(addr, size)
 
@@ -101,30 +95,25 @@ class Mem(object):
         return int(data, 16)
 
     def set_size(self, size):
-        """Updates the memory size. """
-
+        """Update the memory size."""
         self._data = ['\x00'] * size
 
     def set_offset(self, offset):
-        """Updates the memory offset address. """
-
+        """Update the memory offset address."""
         self._offset = offset
 
     def size(self):
-        """Returns the memory size. """
-
+        """Return the memory size."""
         return len(self._data)
 
     def clear(self):
-        """Clears the memory content. """
-
+        """Clear the memory content."""
         for i in range(len(self._data)):
             self._data[i] = '\x00'
 
     def connect(self, dut, prefix=None):
-        """Connects DUT to the AXI slave interface of the memory module. """
-
-        if prefix == None:
+        """Connect DuT to the AXI4 slave interface of the memory module."""
+        if prefix is None:
             sig_prefix = "m_axi"
         else:
             sig_prefix = "m_axi_%s" % prefix
@@ -158,11 +147,10 @@ class Mem(object):
 
     @cocotb.coroutine
     def main(self):
-        """AXI slave read/write interface.
+        """Handle AXI4 slave read/write interface.
 
         Allows attached DUT to read/write memory content via an AXI interface.
         """
-
         # initially read/write address ready signals are low
         self._ARREADY <= 0
         self._AWREADY <= 0
@@ -176,8 +164,7 @@ class Mem(object):
         # initially BVALID is low
         self._BVALID <= 0
 
-        while True: # infinite loop
-
+        while True:  # infinite loop
             read = False
             write = False
 
@@ -299,8 +286,9 @@ class Mem(object):
 
                     # randomly keep WREADY low sometimes for a bit
                     if i != awlen:
-                       if random.random() < 0.1:
-                           yield wait_n_cycles(self._CLK, random.randint(1, 5))
+                        if random.random() < 0.1:
+                            yield wait_n_cycles(self._CLK,
+                                                random.randint(1, 5))
 
                 # set BRESP and BVALID
                 self._BRESP <= 0
@@ -314,4 +302,3 @@ class Mem(object):
 
                 # set BVALID back low
                 self._BVALID <= 0
-

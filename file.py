@@ -1,6 +1,7 @@
+"""Memory-mapped file access."""
+# The MIT License
 #
-# The MIT License (MIT)
-# Copyright (c) 2018 by the author(s)
+# Copyright (c) 2017-2018 by the author(s)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -9,32 +10,31 @@
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
-# OR OTHER DEALINGS IN THE SOFTWARE.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 #
 # Author(s):
-#   Andreas Oeldemann, <andreas.oeldemann@tum.de>
-#
+#   - Andreas Oeldemann <andreas.oeldemann@tum.de>
 #
 # Description:
 #
 # Reads an input file and allows memory-mapped access via python function
 # calls. Module does not implement any hardware interfaces to connect it to a
 # DUT directly.
-#
 
 import mmap
 
+
 class File(object):
-    """ Memory-mapped file.
+    """Memory-mapped file.
 
     Reads an input file and allows memory-mapped access.
     """
@@ -45,25 +45,21 @@ class File(object):
         Initializes the object. Expects parameter providing the name of the
         file that shall be read.
         """
-
         # open file and mmap it
         self._file = open(filename, "r+b")
         self._mm = mmap.mmap(self._file.fileno(), 0, access=mmap.ACCESS_READ)
 
     def close(self):
-        """Closes a previously opened file. """
-
+        """Close file."""
         self._mm.close()
         self._file.close()
 
     def read(self, addr, size):
-        """Reads data from the file (integer in original byte order). """
-
+        """Read data from the file (integer in original byte order)."""
         return int("".join(self._mm[addr:addr+size]).encode('hex'), 16)
 
     def read_reverse_byte_order(self, addr, size):
-        """Reads data from the file (integer in reversed byte order). """
-
+        """Read data from the file (integer in reversed byte order)."""
         # read data and convert to hex string
         data = "".join(self._mm[addr:addr+size]).encode('hex')
 
@@ -73,6 +69,5 @@ class File(object):
         return int(data, 16)
 
     def size(self):
-        """Returns the size of the mmaped file. """
-
+        """Return the size of the mmaped file."""
         return len(self._mm)

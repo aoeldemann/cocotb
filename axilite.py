@@ -1,6 +1,7 @@
+"""Classes for reading/writing AXI4-Lite interfaces."""
+# The MIT License
 #
-# The MIT License (MIT)
-# Copyright (c) 2018 by the author(s)
+# Copyright (c) 2017-2018 by the author(s)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -9,46 +10,43 @@
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
-# OR OTHER DEALINGS IN THE SOFTWARE.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 #
 # Author(s):
-#   Andreas Oeldemann, <andreas.oeldemann@tum.de>
-#
+#   - Andreas Oeldemann <andreas.oeldemann@tum.de>
 #
 # Description:
 #
-# AXI Lite helper modules that allow easy reading and writing from/to AXI Lite
-# peripheral interfaces.
-#
+# Classes for reading/writing AXI4-Lite interfaces.
 
 import cocotb
 from cocotb.triggers import RisingEdge
 from cocotb.result import ReturnValue
 
+
 class AXI_Lite_Writer(object):
-    """AXI Lite interface writer. """
+    """AXI4-Lite interface writer."""
 
     def connect(self, dut, clk, bit_width, prefix=None):
-        """Connects the DUT AXI Lite interface to this writer.
+        """Connect the DuT AXI4-Lite interface to this writer.
 
-        When parameter 'prefix' is not set, DUT AXI Lite signals are expected
-        to be named s_axi_awaddr, s_axi_awvalid, ... If 'prefix' is set, DUT AXI
-        signals are expected to be named s_axi_<prefix>_awaddr, ...
+        When parameter 'prefix' is not set, DuT AXI4-Lite signals are expected
+        to be named s_axi_awaddr, s_axi_awvalid, ... If 'prefix' is set, DuT
+        AXI4-Lite signals are expected to be named s_axi_<prefix>_awaddr, ...
         """
-
         self.bit_width = bit_width
         self.access_active = False
 
-        if prefix == None:
+        if prefix is None:
             sig_prefix = "s_axi"
         else:
             sig_prefix = "s_axi_%s" % prefix
@@ -66,8 +64,7 @@ class AXI_Lite_Writer(object):
 
     @cocotb.coroutine
     def rst(self):
-        """Signal resets. """
-
+        """Reset signals."""
         self.awvalid <= 0
         self.wvalid <= 0
         self.bready <= 0
@@ -76,11 +73,10 @@ class AXI_Lite_Writer(object):
 
     @cocotb.coroutine
     def write(self, addr, data):
-        """Writes data to the AXI Lite interface. """
-
+        """Write data to the AXI4-Lite interface."""
         # serialize access
         while True:
-            if self.access_active == False:
+            if not self.access_active:
                 break
             yield RisingEdge(self.clk)
         self.access_active = True
@@ -120,20 +116,19 @@ class AXI_Lite_Writer(object):
 
 
 class AXI_Lite_Reader(object):
-    """AXI Lite interface reader. """
+    """AXI4-Lite interface reader."""
 
     def connect(self, dut, clk, bit_width, prefix=None):
-        """Connects the DUT AXI Lite interface to this reader.
+        """Connect the DuT AXI4-Lite interface to this reader.
 
-        When parameter 'prefix' is not set, DUT AXI Lite signals are expected
-        to be named s_axi_araddr, s_axi_arvalid, ... If 'prefix' is set, DUT AXI
-        signals are expected to be named s_axi_<prefix>_araddr, ...
+        When parameter 'prefix' is not set, DuT AXI4-Lite signals are expected
+        to be named s_axi_araddr, s_axi_arvalid, ... If 'prefix' is set, DuT
+        AXI4-Lite signals are expected to be named s_axi_<prefix>_araddr, ...
         """
-
         self.bit_width = bit_width
         self.access_active = False
 
-        if prefix == None:
+        if prefix is None:
             sig_prefix = "s_axi"
         else:
             sig_prefix = "s_axi_%s" % prefix
@@ -148,19 +143,17 @@ class AXI_Lite_Reader(object):
 
     @cocotb.coroutine
     def rst(self):
-        """Signal resets. """
-
+        """Reset signals."""
         self.arvalid <= 0
         self.rready <= 0
         yield RisingEdge(self.clk)
 
     @cocotb.coroutine
     def read(self, addr):
-        """Reads data from the AXI Lite interface. """
-
+        """Read data from the AXI4-Lite interface."""
         # serialize access
         while True:
-            if self.access_active == False:
+            if not self.access_active:
                 break
             yield RisingEdge(self.clk)
         self.access_active = True
@@ -192,4 +185,3 @@ class AXI_Lite_Reader(object):
         self.access_active = False
 
         raise ReturnValue(data)
-

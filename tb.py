@@ -1,6 +1,7 @@
+"""Basic test bench functions."""
+# The MIT License
 #
-# The MIT License (MIT)
-# Copyright (c) 2018 by the author(s)
+# Copyright (c) 2017-2018 by the author(s)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -9,25 +10,23 @@
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
-# OR OTHER DEALINGS IN THE SOFTWARE.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 #
 # Author(s):
-#   Andreas Oeldemann, <andreas.oeldemann@tum.de>
-#
+#   - Andreas Oeldemann <andreas.oeldemann@tum.de>
 #
 # Description:
 #
 # Provides some basic test bench functions that are needed quite frequently.
-#
 
 import cocotb
 from cocotb.triggers import Timer, RisingEdge
@@ -35,9 +34,10 @@ from random import randint
 import numpy as np
 import sys
 
+
 @cocotb.coroutine
 def clk_gen(sig_clk, freq_mhz):
-    """ Generates a clock with a specifiable clock frequency in MHz. """
+    """Generate a clock with a specifiable clock frequency in MHz."""
     t_clk = 1e6/freq_mhz
     while True:
         sig_clk <= 0
@@ -45,17 +45,19 @@ def clk_gen(sig_clk, freq_mhz):
         sig_clk <= 1
         yield Timer(t_clk/2)
 
+
 @cocotb.coroutine
 def wait_n_cycles(sig_clk, n_cycles):
-    """ Waits a specific number of rising clock events. """
+    """Wait a specific number of rising clock events."""
     for _ in range(n_cycles):
         yield RisingEdge(sig_clk)
 
+
 @cocotb.coroutine
 def rst(sig_clk, sig_rst):
-    """ Resets the DUT.
+    """Reset the DuT.
 
-    Triggers the reset signal of the DUT for 5 clock cycles. Provided reset
+    Trigger the reset signal of the DuT for 5 clock cycles. Provided reset
     signal must be active high.
     """
     yield RisingEdge(sig_clk)
@@ -64,11 +66,12 @@ def rst(sig_clk, sig_rst):
     sig_rst <= 0
     yield RisingEdge(sig_clk)
 
+
 @cocotb.coroutine
 def rstn(sig_clk, sig_rstn):
-    """ Resets the DUT.
+    """Reset the DuT.
 
-    Triggers the reset signal of the DUT for 5 clock cycles. Provided reset
+    Trigger the reset signal of the DuT for 5 clock cycles. Provided reset
     signal must be active low.
     """
     yield RisingEdge(sig_clk)
@@ -77,9 +80,10 @@ def rstn(sig_clk, sig_rstn):
     sig_rstn <= 1
     yield RisingEdge(sig_clk)
 
+
 @cocotb.coroutine
 def toggle_signal(clk, sig):
-    """Randomly toggles the value of a one bit signal. """
+    """Randomly toggle the value of a one bit signal."""
     while True:
         yield wait_n_cycles(clk, randint(1, 25))
         if int(sig) == 0:
@@ -87,18 +91,18 @@ def toggle_signal(clk, sig):
         else:
             sig <= 0
 
-def check_value(name, val1, val2):
-    """Checkes whether two values are equal. Throws error if not. """
 
+def check_value(name, val1, val2):
+    """Check whether two values are equal. Throw error if not."""
     if val1 == val2:
         return
 
     msg = "Incorrect value '%s': 0x%x != 0x%x" % (name, val1, val2)
     raise cocotb.result.TestFailure(msg)
 
-def swp_byte_order(data, bytelen):
-    """Returns the input data in reversed byte oder """
 
+def swp_byte_order(data, bytelen):
+    """Return the input data in reversed byte order."""
     h = '%x' % data
     s = ('0'*(len(h) % 2) + h).zfill(bytelen*2).decode('hex')
     return int(s[::-1].encode('hex'), 16)
@@ -107,7 +111,7 @@ def swp_byte_order(data, bytelen):
 def print_progress(i, n):
     """Print simulation progress.
 
-    Parametr 'i' defines the current iteration number (0 <= i < n). Paramter
+    Parameter 'i' defines the current iteration number (0 <= i < n). Parameter
     'n' defines the total number of iterations.
     """
     # calculate iteration thresholds on which print out shall occur

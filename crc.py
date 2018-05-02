@@ -1,6 +1,7 @@
+"""CRC checksum calculation."""
+# The MIT License
 #
-# The MIT License (MIT)
-# Copyright (c) 2018 by the author(s)
+# Copyright (c) 2017-2018 by the author(s)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -9,31 +10,29 @@
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included in all
-# copies or substantial portions of the Software.
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE
-# OR OTHER DEALINGS IN THE SOFTWARE.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 #
 # Author(s):
-#   Andreas Oeldemann, <andreas.oeldemann@tum.de>
-#
+#   - Andreas Oeldemann <andreas.oeldemann@tum.de>
 #
 # Description:
 #
-# Functions to calculate CRC checksums.
-#
+# CRC checksum calculation.
 
 import struct
 
-def _crc16_initial(c):
-    """Creates initial CRC16 table values. """
 
+def _crc16_initial(c):
+    """Create initial CRC16 table values."""
     crc = 0
     c = c << 8
     for j in range(8):
@@ -44,12 +43,13 @@ def _crc16_initial(c):
         c = c << 1
     return crc
 
+
 # crc16 table
-_crc16_tab = [ _crc16_initial(i) for i in range(256) ]
+_crc16_tab = [_crc16_initial(i) for i in range(256)]
+
 
 def _crc16_update(crc, c):
-    """CRC16 update function. """
-
+    """CRC16 update function."""
     c = struct.unpack("B", c)[0]
     cc = 0xffff & c
     tmp = (crc >> 8) ^ cc
@@ -57,9 +57,9 @@ def _crc16_update(crc, c):
     crc = crc & 0xffff
     return crc
 
-def crc16(i):
-    """Returns the CRC16 value for a given key. """
 
+def crc16(i):
+    """Return the CRC16 value for a given key."""
     h = '%x' % i
     s = ('0'*(len(h) % 2) + h).decode('hex')
     crc = 0

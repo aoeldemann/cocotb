@@ -130,7 +130,7 @@ def axis_data_to_packet(tdata, tkeep, datapath_bit_width):
     return Ether(pkt_data.tostring())
 
 
-def calc_toeplitz_hash(pkt, key, key_len):
+def calc_toeplitz_hash(pkt, key, keylen):
     """Calculate the Toeplitz hash value for an IP packet.
 
     The function calculates the Toeplitz hash value for an IPv4/IPv6 packet
@@ -143,51 +143,39 @@ def calc_toeplitz_hash(pkt, key, key_len):
     != 0), the hash value is only calculated based on source and destination
     IP addresses and possible TCP/UDP layers are not taken into account.
 
-    For IPv4 packets that encapsulate an IPv6 packet (i.e. IP6in4, protocol
-    number 0x29), the hash is calculated based on the source and destination
-    addresses of the inner IPv6 packet. Possible L4 layers within the IPv6
-    packet are not taken into account.
+    For non-IP packets, a hash value of zero is returned
     """
-    # only calculate toeplitz hash for IPv4 and IPv6 packets
-    assert (IP in pkt) or (IPv6 in pkt)
+    # return zero for non-IP packets
+    if IP not in pkt and IPv6 not in pkt:
+        return 0
 
     if IP in pkt:  # L3 is IPv4
         data = int(IPAddress(pkt[IP].src)) << 32
         data |= int(IPAddress(pkt[IP].dst))
         l3 = IP
-        dataLen = 64
+        datalen = 64
     elif IPv6 in pkt:  # L3 is IPv6
         data = int(IPAddress(pkt[IPv6].src, 6)) << 128
         data |= int(IPAddress(pkt[IPv6].dst, 6))
         l3 = IPv6
-        dataLen = 256
+        datalen = 256
 
     if l3 == IP and (pkt[IP].flags == 1 or pkt[IP].frag != 0):
         # for fragmented packets, only hash IPv4 header
         pass
-    if l3 == IP and IPv6 in pkt[IP]:
-        # IPv4 packet encapsulates an IPv6 packet -> calculate hash based on
-        # IPv6 source and destination addresses
-        data = int(IPAddress(pkt[IPv6].src, 6)) << 128
-        data |= int(IPAddress(pkt[IPv6].dst, 6))
-        dataLen = 256
     elif TCP in pkt[l3]:  # L4 is TCP
         data = (data << 32) | (pkt[l3][TCP].sport << 16) | pkt[l3][TCP].dport
-        dataLen += 32
+        datalen += 32
     elif UDP in pkt[l3]:  # L4 is UDP
         data = (data << 32) | (pkt[l3][UDP].sport << 16) | pkt[l3][UDP].dport
-        dataLen += 32
-
-    # initialize data mask
-    dataMask = 1 << (dataLen - 1)
+        datalen += 32
 
     # initialize hash value
     hashval = 0
 
     # do the hashing
-    for i in range(dataLen):
-        if data & dataMask:
-            hashval ^= (key >> (key_len * 8 - 32 - i)) & 0xFFFFFFFF
-        dataMask = dataMask >> 1
+    for i in range(datalen):
+        if data & (1 << i):
+            hashval ^= (key >> (keylen * 8 - 32 - (datalen - i) + 1)) & 0xFFFFFFFF
 
     return hashval

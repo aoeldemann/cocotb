@@ -35,7 +35,7 @@ from netaddr import IPAddress
 from random import randint, random
 
 
-def gen_packet(eth_only=False):
+def gen_packet(eth_only=False, size=None):
     """Generate a random network packet.
 
     By default, function generates a random IPv4 or IPv6 packet, possibly with
@@ -87,10 +87,14 @@ def gen_packet(eth_only=False):
                 pass
 
     # append some random payload
-    pkt /= ''.join(chr(randint(0, 255)) for _ in
-                   range(randint(50, 1000)))
+    if size is not None:
+        pkt /= ''.join(chr(randint(0, 255)) for _ in range(size-len(pkt)))
+    else:
+        pkt /= ''.join(chr(randint(0, 255)) for _ in
+                       range(randint(50, 1000)))
 
     return pkt
+
 
 def packet_to_axis_data(pkt, datapath_bit_width):
     """Convert packet to AXI-Stream data.
@@ -176,6 +180,7 @@ def calc_toeplitz_hash(pkt, key, keylen):
     # do the hashing
     for i in range(datalen):
         if data & (1 << i):
-            hashval ^= (key >> (keylen * 8 - 32 - (datalen - i) + 1)) & 0xFFFFFFFF
+            hashval ^= (key >> (keylen * 8 - 32 -
+                                (datalen - i) + 1)) & 0xFFFFFFFF
 
     return hashval
